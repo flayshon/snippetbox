@@ -53,6 +53,15 @@ func (m *UserModel) Authenticate(email, password string) (int, error) {
 
 	err := m.DB.QueryRow(stmt, email).Scan(&id, &hashedPassword)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrInvalidCredentials
+		} else {
+			return 0, err
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
+	if err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return 0, ErrInvalidCredentials
 		} else {
@@ -64,5 +73,10 @@ func (m *UserModel) Authenticate(email, password string) (int, error) {
 }
 
 func (m *UserModel) Exists(id int) (bool, error) {
-	return false, nil
+	var exists bool
+
+	stmt := "SELECT EXISTS(SELECT true from users WHERE id = ?)"
+
+	err := m.DB.QueryRow(stmt, id).Scan(&exists)
+	return exists, err
 }
